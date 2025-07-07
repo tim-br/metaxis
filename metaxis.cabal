@@ -1,0 +1,73 @@
+cabal-version:       2.2
+
+name:                metaxis
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/githubuser/metaxis#readme
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2025 Author name here
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+                     CHANGELOG.md
+
+-- Backend selection
+flag postgres
+  default: True
+  description: Enable PostgreSQL backend
+
+flag sqlite
+  default: True
+  description: Enable SQLite backend
+
+library
+  exposed-modules:
+      Metaxis.Class
+    , Metaxis.Runner
+  hs-source-dirs: src
+  default-language: Haskell2010
+  build-depends:
+      base >=4.7 && <5
+    , text
+    , bytestring
+    , filepath
+    , directory
+    , time
+    , ansi-terminal
+
+  if flag(postgres)
+    cpp-options: -DPOSTGRES_ENABLED
+    build-depends: postgresql-simple
+    other-modules: Metaxis.Postgres
+
+  if flag(sqlite)
+    cpp-options: -DSQLITE_ENABLED
+    build-depends: sqlite-simple
+    other-modules: Metaxis.Sqlite
+
+executable metaxis
+  main-is: Main.hs
+  hs-source-dirs: src 
+  default-language: Haskell2010
+  build-depends:
+      base
+    , metaxis
+    , optparse-applicative
+    , text
+    , filepath
+    , directory
+    , ansi-terminal
+
+  if flag(postgres)
+    cpp-options: -DPOSTGRES_ENABLED
+    build-depends: postgresql-simple
+    other-modules: Metaxis.Postgres
+
+  if flag(sqlite)
+    cpp-options: -DSQLITE_ENABLED
+    build-depends: sqlite-simple
+    other-modules: Metaxis.Sqlite
