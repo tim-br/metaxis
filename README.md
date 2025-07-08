@@ -62,10 +62,10 @@ Example:
 
 ```
 migrations/
-├── 1_create_users.sql
-├── 1_create_users.down.sql
-├── 2_add_email_to_users.sql
-├── 2_add_email_to_users.down.sql
+├── 001_create_users.sql
+├── 001_create_users.down.sql
+├── 002_add_email_to_users.sql
+├── 002_add_email_to_users.down.sql
 ```
 
 ### Backend Configuration
