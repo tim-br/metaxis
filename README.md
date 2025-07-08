@@ -10,10 +10,21 @@ Metaxis is a Haskell library for managing database migrations across multiple ba
 
 ## Installation
 
-To use Metaxis, ensure you have Haskell installed along with the required dependencies. You can enable support for specific backends during build time using the appropriate flags:
+To use Metaxis, ensure you have Haskell installed along with the required dependencies. 
 
-- `POSTGRES_ENABLED` for PostgreSQL
-- `SQLITE_ENABLED` for SQLite
+### Build Flags
+
+Metaxis supports optional build flags to enable specific database backends. Use `stack` to configure these flags during the build process:
+
+```bash
+# Build with SQLite enabled and PostgreSQL disabled
+stack build --flag metaxis:sqlite --flag metaxis:-postgres
+
+# Build with PostgreSQL enabled and SQLite disabled
+stack build --flag metaxis:postgres --flag metaxis:-sqlite
+```
+
+If a backend is disabled, attempting to use it will result in an error message at runtime.
 
 ## Usage
 
@@ -61,6 +72,31 @@ migrations/
 
 - **SQLite**: Uses a local file-based database. Default file is `dev.sqlite3`.
 - **PostgreSQL**: Uses `defaultConnectInfo` for connection. Customize as needed.
+
+## Running the Binary
+
+After building the project, the `metaxis` executable will be located in the `.stack-work` directory. You can run it directly using the full path or add the directory to your `PATH` for convenience.
+
+### Example Usage
+
+Run the executable with the desired command and backend:
+
+```bash
+# Apply migrations using PostgreSQL
+./.stack-work/install/aarch64-osx/<resolver>/bin/metaxis migrate --backend pg
+
+# Roll back the last migration using SQLite
+./.stack-work/install/aarch64-osx/<resolver>/bin/metaxis rollback --backend sqlite
+```
+
+Replace `<resolver>` with the specific resolver used during the build process (e.g., `cd0d45758eebe2f97dd3d906710943610beec0f500f409354d6ac8c1eeab2e1f/9.8.4`).
+
+Alternatively, you can use `stack exec` to run the binary without specifying the full path:
+
+```bash
+stack exec metaxis -- migrate --backend pg
+stack exec metaxis -- rollback --backend sqlite
+```
 
 ## Development
 
