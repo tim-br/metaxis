@@ -106,7 +106,3 @@ To build the project, use the following commands:
 stack build
 stack exec metaxis -- <command>
 ```
-
-## License
-
-Metaxis is licensed under the MIT License.
