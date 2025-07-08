@@ -106,3 +106,17 @@ To build the project, use the following commands:
 stack build
 stack exec metaxis -- <command>
 ```
+
+## Running Tests
+
+Metaxis includes a test suite to verify functionality. To run the tests, use:
+
+```bash
+stack test
+```
+
+The test suite includes:
+- **SQLite Tests**: Ensures schema creation and migration application.
+
+
+Tests are located in the `test` directory, with the main entry point being `Spec.hs`.
