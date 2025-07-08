@@ -6,7 +6,14 @@ module Metaxis.Sqlite where
 
 import Metaxis.Class
 import Database.SQLite.Simple
-import qualified Data.Text.Encoding as T
+    ( execute,
+      execute_,
+      open,
+      query_,
+      Only(Only, fromOnly),
+      Connection,
+      Query(Query) )
+import qualified Data.Text as T
 import Data.Proxy
 import Control.Monad (void)
 
@@ -25,7 +32,8 @@ instance MigrationBackend Sqlite where
     map fromOnly <$> query_ conn "SELECT version FROM schema_migrations"
 
   applyMigration (_ :: Proxy Sqlite) conn fname sql = do
-    execute_ conn (Query sql)
+    let queries = filter (not . T.null) $ filter (not . T.isPrefixOf "--") $ map T.strip $ T.splitOn ";" sql
+    mapM_ (execute_ conn . Query) queries -- Execute each valid query
     void $ execute conn "INSERT INTO schema_migrations (version) VALUES (?)" (Only fname)
 
   rollbackMigration (_ :: Proxy Sqlite) conn _ sql =

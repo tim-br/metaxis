@@ -7,7 +7,8 @@ module Metaxis.Postgres where
 import Metaxis.Class
 import Database.PostgreSQL.Simple
 import Database.PostgreSQL.Simple.Types
-import qualified Data.Text.Encoding as T
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Data.Proxy
 import Control.Monad (void)
 
@@ -26,11 +27,12 @@ instance MigrationBackend Postgres where
     map fromOnly <$> query_ conn "SELECT version FROM schema_migrations"
 
   applyMigration (_ :: Proxy Postgres) conn fname sql = do
-    execute_ conn (Query $ T.encodeUtf8 sql)
+    let cleanedSql = T.unlines . filter (not . T.isPrefixOf "--") $ T.lines sql -- Remove comments
+    execute_ conn (Query $ TE.encodeUtf8 cleanedSql) -- Execute the entire cleaned SQL as a single unit
     void $ execute conn "INSERT INTO schema_migrations (version) VALUES (?)" (Only fname)
 
   rollbackMigration (_ :: Proxy Postgres) conn _ sql =
-    void $ execute_ conn (Query $ T.encodeUtf8 sql)
+    void $ execute_ conn (Query $ TE.encodeUtf8 sql)
 
   deleteMigration (_ :: Proxy Postgres) conn fname =
     void $ execute conn "DELETE FROM schema_migrations WHERE version = ?" (Only fname)
