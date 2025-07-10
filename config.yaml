@@ -1,0 +1,8 @@
+# Configuration for Metaxis
+
+migrationDir: sqlite_migrations
+backend: sqlite 
+
+# SQLite connection settings
+sqlite: foo.sqlite3
+

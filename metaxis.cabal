@@ -38,6 +38,8 @@ library
     , directory
     , time
     , ansi-terminal
+    , yaml
+    , aeson
 
   if flag(postgres)
     cpp-options: -DPOSTGRES_ENABLED
@@ -61,6 +63,8 @@ executable metaxis
     , filepath
     , directory
     , ansi-terminal
+    , yaml
+    , aeson
 
   if flag(postgres)
     cpp-options: -DPOSTGRES_ENABLED
@@ -91,6 +95,8 @@ test-suite metaxis-tests
     filepath,
     text,
     sqlite-simple,
+    yaml,
+    aeson
   other-modules:
       Metaxis.Class
     , Metaxis.Runner
