@@ -4,159 +4,79 @@
 module Main where
 
 import Data.Char (toLower)
-import Data.Word (Word16)
 import Options.Applicative
 import Metaxis.Runner
 import Metaxis.Class
 import System.IO
+import Data.Word (Word16)
 import Data.Yaml (decodeFileThrow)
-import Data.Aeson (FromJSON(..), withObject, (.:), (.:?))
 import System.Directory (doesFileExist)
-import Data.Maybe (fromMaybe)
 import Control.Monad (when)
-import System.Exit (die)
+import Metaxis.Config (Config(..), mergeConfig, defaultConfig, Backend(..)) -- Use Backend from Metaxis.Config
 
 #ifdef POSTGRES_ENABLED
 import Metaxis.Postgres
-import Database.PostgreSQL.Simple (ConnectInfo(..))
+import Database.PostgreSQL.Simple (ConnectInfo, defaultConnectInfo) -- Explicitly import ConnectInfo
 #endif
 
 #ifdef SQLITE_ENABLED
 import Metaxis.Sqlite
 #endif
 
-data Backend = PG | SQLITE deriving (Show, Eq)
-data Command = Migrate FilePath Backend ConnectInfo | Rollback FilePath Backend ConnectInfo
+data Command = Migrate | Rollback
 
-data Config = Config
-  { migrationDir :: Maybe FilePath
-  , backend :: Maybe String
-#ifdef POSTGRES_ENABLED
-  , postgres :: Maybe ConnectInfo
-#endif
-#ifdef SQLITE_ENABLED
-  , sqlite :: Maybe FilePath
-#endif
-  } deriving (Show)
-
-instance FromJSON Config where
-  parseJSON = withObject "Config" $ \v -> Config
-    <$> v .:? "migrationDir"
-    <*> v .:? "backend"
-#ifdef POSTGRES_ENABLED
-    <*> v .:? "postgres"
-#endif
-#ifdef SQLITE_ENABLED
-    <*> v .:? "sqlite"
-#endif
-
-#ifdef POSTGRES_ENABLED
-instance FromJSON ConnectInfo where
-  parseJSON = withObject "ConnectInfo" $ \v -> ConnectInfo
-    <$> v .: "host"
-    <*> v .: "port"
-    <*> v .: "user"
-    <*> v .: "password"
-    <*> v .: "database"
-#endif
-
-instance Read Backend where
-  readsPrec _ value = case map toLower value of
-    "postgres" -> [(PG, "")]
-    "sqlite"   -> [(SQLITE, "")]
-    _          -> []
-
-cliOptions :: Parser (Bool, Maybe FilePath, Maybe Backend,
-                      Maybe String, Maybe Word16, Maybe String, Maybe String, Maybe String)
+cliOptions :: Parser (Maybe FilePath, Maybe Backend, Maybe String, Maybe Word16, Maybe String, Maybe String, Maybe String)
 cliOptions =
-  (,,,,,,,)
-    <$> hsubparser
-          ( command "migrate"  (info (pure True)  (progDesc "Apply migrations"))
-         <> command "rollback" (info (pure False) (progDesc "Roll back last migration"))
-          )
-    <*> optional (strOption (long "migration-dir" <> metavar "DIR" <> help "Migration directory"))
+  (,,,,,,)
+    <$> optional (strOption (long "migration-dir" <> metavar "DIR" <> help "Migration directory"))
     <*> optional (option auto (long "backend" <> metavar "pg|sqlite" <> help "Backend"))
     <*> optional (strOption (long "host"     <> metavar "HOST"     <> help "PostgreSQL host"))
-    <*> optional (option auto (long "port" <> metavar "PORT" <> help "PostgreSQL port"))
+    <*> optional (option auto (long "port"   <> metavar "PORT"     <> help "PostgreSQL port"))
     <*> optional (strOption (long "user"     <> metavar "USER"     <> help "PostgreSQL user"))
     <*> optional (strOption (long "password" <> metavar "PASSWORD" <> help "PostgreSQL password"))
     <*> optional (strOption (long "database" <> metavar "DATABASE" <> help "PostgreSQL database"))
 
+commandParser :: Parser Command
+commandParser = subparser
+  ( command "migrate" (info (pure Migrate) (progDesc "Apply migrations"))
+ <> command "rollback" (info (pure Rollback) (progDesc "Roll back last migration"))
+  )
 
 main :: IO ()
 main = do
   configExists <- doesFileExist "config.yaml"
   config <- if configExists then decodeFileThrow "config.yaml" else pure defaultConfig
-  (isMigrate, cliDir, cliBackend, cliHost, cliPort, cliUser, cliPass, cliDB) <- execParser (info (cliOptions <**> helper) fullDesc)
+  (cli, cmd) <- execParser (info ((,) <$> cliOptions <*> commandParser <**> helper) fullDesc)
+  let (dir, backend, conn) = mergeConfig config cli
+  run dir backend conn cmd
 
-  let dir = fromMaybe (fromMaybe (error "Missing migrationDir") (migrationDir config)) cliDir
-  let configBackend = backend config >>= safeReadBackend
-      resolvedBackend = fromMaybe (fromMaybe (error "Missing backend") configBackend) cliBackend
-
-
-
-#ifdef POSTGRES_ENABLED
-  let configConn = postgres config
-      merge cliVal getField = maybe (fmap getField configConn) Just cliVal
-      conn = ConnectInfo
-              (fromMaybe (dieMissing "host")     $ merge cliHost connectHost)
-              (fromMaybe (dieMissing "port")     $ merge cliPort connectPort)
-              (fromMaybe (dieMissing "user")     $ merge cliUser connectUser)
-              (fromMaybe (dieMissing "password") $ merge cliPass connectPassword)
-              (fromMaybe (dieMissing "database") $ merge cliDB connectDatabase)
-#endif
-
-#ifdef SQLITE_ENABLED
-  let sqliteFile = fromMaybe (error "Missing SQLite db-name") (sqlite config)
-      conn = ConnectInfo "" 0 "" "" sqliteFile
-#endif
-
-  let cmd = if isMigrate then Migrate dir resolvedBackend conn else Rollback dir resolvedBackend conn
-  run config cmd
-
-safeReadBackend :: String -> Maybe Backend
-safeReadBackend s = case reads (map toLower s) of
-  [(b, "")] -> Just b
-  _         -> Nothing
-
-
-run :: Config -> Command -> IO ()
-run _ (Migrate dir PG conn) =
+run :: FilePath -> Backend -> Either FilePath ConnectInfo -> Command -> IO ()
+run dir PG (Right conn) Migrate =
 #ifdef POSTGRES_ENABLED
   runMigrate (Postgres conn) dir
 #else
-  putStrLn "PostgreSQL not enabled."
+  putStrLn "PostgreSQL not enabled at build time."
 #endif
 
-run _ (Rollback dir PG conn) =
+run dir PG (Right conn) Rollback =
 #ifdef POSTGRES_ENABLED
   runRollback (Postgres conn) dir
 #else
-  putStrLn "PostgreSQL not enabled."
+  putStrLn "PostgreSQL not enabled at build time."
 #endif
 
-run _ (Migrate dir SQLITE conn) =
+run dir SQLITE (Left sqlitePath) Migrate =
 #ifdef SQLITE_ENABLED
-  runMigrate (Sqlite (connectDatabase conn)) dir
+  runMigrate (Sqlite sqlitePath) dir
 #else
-  putStrLn "SQLite not enabled."
+  putStrLn "SQLite not enabled at build time."
 #endif
 
-run _ (Rollback dir SQLITE conn) =
+run dir SQLITE (Left sqlitePath) Rollback =
 #ifdef SQLITE_ENABLED
-  runRollback (Sqlite (connectDatabase conn)) dir
+  runRollback (Sqlite sqlitePath) dir
 #else
-  putStrLn "SQLite not enabled."
+  putStrLn "SQLite not enabled at build time."
 #endif
 
-defaultConfig :: Config
-defaultConfig = Config Nothing Nothing
-#ifdef POSTGRES_ENABLED
-  Nothing
-#endif
-#ifdef SQLITE_ENABLED
-  Nothing
-#endif
-
-dieMissing :: String -> a
-dieMissing key = error $ "Missing required connection field: " ++ key
+run _ _ _ _ = putStrLn "Invalid configuration or command."

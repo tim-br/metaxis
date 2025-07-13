@@ -5,6 +5,7 @@ module Main (main) where
 import Test.Hspec
 import Metaxis.Class
 import Metaxis.Sqlite
+import ConfigSpec (spec) -- Correctly import the `spec` function
 import qualified Data.Text as T
 import System.Directory (removeFile, doesFileExist)
 import Data.Proxy
@@ -32,6 +33,8 @@ main = hspec $ do
       applied `shouldBe` ["001_test.sql"]
       close conn
       cleanupSqlite "test.sqlite"
+
+  describe "ConfigSpec" spec -- Use the imported `spec` function
 
 cleanupSqlite :: FilePath -> IO ()
 cleanupSqlite path = do
