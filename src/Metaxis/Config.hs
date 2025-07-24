@@ -59,7 +59,7 @@ safeReadBackend s = case reads (map toLower s) of
 
 #ifdef POSTGRES_ENABLED
 mergeConfig :: Config -> (Maybe FilePath, Maybe Backend, Maybe String, Maybe Word16, Maybe String, Maybe String, Maybe String)
-            -> (FilePath, Backend, Either FilePath ConnectInfo)
+            -> (FilePath, Backend, Either FilePath (ConnectInfo, Bool))
 #else
 mergeConfig :: Config -> (Maybe FilePath, Maybe Backend, Maybe String, Maybe Word16, Maybe String, Maybe String, Maybe String)
             -> (FilePath, Backend, Either FilePath String)
@@ -73,12 +73,14 @@ mergeConfig config (cliDir, cliBackend, cliHost, cliPort, cliUser, cliPass, cliD
 #ifdef POSTGRES_ENABLED
           let configConn = postgres config
               merge cliVal getField = cliVal <|> (getField <$> configConn)
-          in Right $ ConnectInfo
+              pw = merge cliPass connectPassword
+              isPasswordMissing = pw == Nothing
+          in Right (ConnectInfo
                (fromMaybe (error "Missing host")     $ merge cliHost connectHost)
                (fromMaybe (error "Missing port")     $ merge cliPort connectPort)
                (fromMaybe (error "Missing user")     $ merge cliUser connectUser)
-               (fromMaybe ""                         $ merge cliPass connectPassword) -- Default to empty string for password
-               (fromMaybe (error "Missing database") $ merge cliDB connectDatabase)
+               (fromMaybe ""                         pw)
+               (fromMaybe (error "Missing database") $ merge cliDB connectDatabase), isPasswordMissing)
 #else
           error "PostgreSQL backend is not enabled."
 #endif

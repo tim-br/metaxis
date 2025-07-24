@@ -236,7 +236,7 @@ spec = do
                 "host"     -> evaluate (connectHost conn `seq` ())     `shouldThrow` (\(ErrorCall msg) -> msg == err)
                 "port"     -> evaluate (connectPort conn `seq` ())     `shouldThrow` (\(ErrorCall msg) -> msg == err)
                 "user"     -> evaluate (connectUser conn `seq` ())     `shouldThrow` (\(ErrorCall msg) -> msg == err)
-                "password" -> evaluate (connectPassword conn `seq` ()) `shouldThrow` (\(ErrorCall msg) -> msg == err)
+                "password" -> connectPassword conn `shouldBe` "" 
                 "database" -> evaluate (connectDatabase conn `seq` ()) `shouldThrow` (\(ErrorCall msg) -> msg == err)
                 _          -> error "Unexpected field name"
               -- let err = "Missing " ++ head firstMissing

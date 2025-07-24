@@ -61,12 +61,15 @@ main = do
   configExists <- doesFileExist "config.yaml"
   config <- if configExists then decodeFileThrow "config.yaml" else pure defaultConfig
   (cli, cmd) <- execParser (info ((,) <$> cliOptions <*> commandParser <**> helper) fullDesc)
-  let (dir, backend, conn) = mergeConfig config cli
-  connWithPassword <- case conn of
-    Right connInfo | null (connectPassword connInfo) -> do
+  let (dir, backend, connResult) = mergeConfig config cli
+  connWithPassword <- case connResult of
+    Right (connInfo, True) -> do
       password <- promptPassword
       return $ Right connInfo { connectPassword = password }
-    _ -> return conn
+    Right (connInfo, False) ->
+      return $ Right connInfo
+    Left sqlitePath ->
+      return $ Left sqlitePath
   run dir backend connWithPassword cmd
 
 run :: FilePath -> Backend -> Either FilePath ConnectInfo -> Command -> IO ()
