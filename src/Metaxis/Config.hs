@@ -72,16 +72,12 @@ mergeConfig config (cliDir, cliBackend, cliHost, cliPort, cliUser, cliPass, cliD
         PG ->
 #ifdef POSTGRES_ENABLED
           let configConn = postgres config
-              --merge cliVal getField = maybe (fmap getField configConn) Just cliVal
-              --merge cliVal getField = cliVal <|> (configConn >>= (Just . getField))
               merge cliVal getField = cliVal <|> (getField <$> configConn)
-
-
           in Right $ ConnectInfo
                (fromMaybe (error "Missing host")     $ merge cliHost connectHost)
                (fromMaybe (error "Missing port")     $ merge cliPort connectPort)
                (fromMaybe (error "Missing user")     $ merge cliUser connectUser)
-               (fromMaybe (error "Missing password") $ merge cliPass connectPassword)
+               (fromMaybe ""                         $ merge cliPass connectPassword) -- Default to empty string for password
                (fromMaybe (error "Missing database") $ merge cliDB connectDatabase)
 #else
           error "PostgreSQL backend is not enabled."
