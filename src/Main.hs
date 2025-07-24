@@ -29,7 +29,7 @@ cliOptions :: Parser (Maybe FilePath, Maybe Backend, Maybe String, Maybe Word16,
 cliOptions =
   (,,,,,,)
     <$> optional (strOption (long "migration-dir" <> metavar "DIR" <> help "Migration directory"))
-    <*> optional (option auto (long "backend" <> metavar "pg|sqlite" <> help "Backend"))
+    <*> optional (option auto (long "backend" <> metavar "postgres|sqlite" <> help "Backend"))
     <*> optional (strOption (long "host"     <> metavar "HOST"     <> help "PostgreSQL host"))
     <*> optional (option auto (long "port"   <> metavar "PORT"     <> help "PostgreSQL port"))
     <*> optional (strOption (long "user"     <> metavar "USER"     <> help "PostgreSQL user"))
